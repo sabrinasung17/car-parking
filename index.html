@@ -219,10 +219,30 @@
 <script>
 (function() {
   const KEY = "parking-log-local-v1";
-  
-  // 這裡已經為您更新成新的 5 個地點！
-  const PRESETS = ["市場全聯", "舊小象旁邊", "85度C/燒臘店對面", "夾娃娃機/洗衣店旁", "紀醫師前面"];
-  
+
+  // 前台顯示的按鈕名稱
+  const PRESETS = [
+    "市場全聯",
+    "舊小象旁邊",
+    "85度C/燒臘店對面",
+    "夾娃娃機/洗衣店旁",
+    "紀醫師前面"
+  ];
+
+  // 後台專屬地址對應表（不顯示在前台，僅供地圖定位導航）
+  const ADDRESS_MAP = {
+    "市場全聯": "基隆市七堵區南興路106號",
+    "舊小象旁邊": "基隆市七堵區崇信街13-7號",
+    "85度C/燒臘店對面": "基隆市七堵區明德一路212號",
+    "夾娃娃機/洗衣店旁": "基隆市七堵區自治北街10號",
+    "紀醫師前面": "基隆市七堵區開元路85號",
+    // 相容歷史舊紀錄
+    "全聯旁邊": "基隆市七堵區南興路106號",
+    "舊小巷": "基隆市七堵區崇信街13-7號",
+    "85度C": "基隆市七堵區明德一路212號",
+    "洗衣店（燒臘店旁）": "基隆市七堵區自治北街10號"
+  };
+
   let items = [];
   let coords = null;
   let sel = "";
@@ -231,7 +251,15 @@
   function key(d) { return d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate()); }
   const wk = ["日", "一", "二", "三", "四", "五", "六"];
   function fmtDate(d) { return (d.getMonth() + 1) + "/" + d.getDate() + "（" + wk[d.getDay()] + "）"; }
-  function mapLink(c, p) { return "https://www.google.com/maps/search/?api=1&query=" + (c ? (c.lat + "," + c.lng) : encodeURIComponent(p)); }
+
+  // 點擊地圖時：有 GPS 優先用 GPS；若無 GPS 則抓取後台地址導航
+  function mapLink(c, p) {
+    if (c) {
+      return "https://www.google.com/maps/search/?api=1&query=" + c.lat + "," + c.lng;
+    }
+    const target = ADDRESS_MAP[p] || p;
+    return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(target);
+  }
 
   const now = new Date();
   let vy = now.getFullYear();
@@ -285,127 +313,4 @@
       h += '<button class="day blank" tabindex="-1" aria-hidden="true"></button>';
     }
     for (let d = 1; d <= dim; d++) {
-      const k = vy + "-" + p2(vm + 1) + "-" + p2(d);
-      const r = map[k];
-      const c = "day" + (r ? " has" : "") + (k === todayK ? " now" : "") + (k === cur ? " sel" : "");
-      h += `<button class="${c}" data-k="${k}"><b>${d}</b>${r ? '<i>' + esc(r[0].place) + '</i>' : ''}</button>`;
-    }
-    $("grid").innerHTML = h;
-
-    const latest = items[0];
-    if (latest) {
-      const ld = new Date(latest.t);
-      $("nowLabel").textContent = (key(ld) === todayK ? "今天" : fmtDate(ld)) + " " + p2(ld.getHours()) + ":" + p2(ld.getMinutes()) + "，車停在";
-      $("nowPlace").textContent = latest.place;
-      $("nowMap").innerHTML = `<a href="${mapLink(latest.c, latest.place)}" target="_blank" rel="noopener">在地圖上開啟</a>`;
-    } else {
-      $("nowLabel").textContent = "還沒有紀錄";
-      $("nowPlace").textContent = "還沒有紀錄";
-      $("nowMap").innerHTML = "";
-    }
-
-    const cp = cur.split("-");
-    const cd = new Date(+cp[0], +cp[1] - 1, +cp[2]);
-    $("dayHead").textContent = (cur === todayK ? "今天 " : "") + fmtDate(cd);
-
-    const recs = map[cur] || [];
-    $("dayRecs").innerHTML = recs.length ? recs.map(i => {
-      const t = new Date(i.t);
-      return `<div class="rec">
-        <time>${p2(t.getHours())}:${p2(t.getMinutes())}</time>
-        <div class="info">${esc(i.place)}${i.note ? '<span>' + esc(i.note) + '</span>' : ''}<a href="${mapLink(i.c, i.place)}" target="_blank" rel="noopener">地圖</a></div>
-        <button class="del" data-t="${i.t}">刪除</button>
-      </div>`;
-    }).join("") : '<p class="none">這天沒有紀錄。</p>';
-
-    $("chips").innerHTML = chipList().map(p => 
-      `<button type="button" class="chip${p === sel ? ' sel' : ''}" data-p="${esc(p)}">${esc(p)}</button>`
-    ).join("");
-  }
-
-  document.addEventListener("click", function(e) {
-    const t = e.target;
-    const g = t.closest && t.closest("[data-k]");
-    if (g) {
-      cur = g.getAttribute("data-k");
-      msg("");
-      render();
-      return;
-    }
-    if (t.id === "prev") {
-      vm--; if (vm < 0) { vm = 11; vy--; }
-      render(); return;
-    }
-    if (t.id === "next") {
-      vm++; if (vm > 11) { vm = 0; vy++; }
-      render(); return;
-    }
-    if (t.id === "toToday") {
-      const n = new Date(); vy = n.getFullYear(); vm = n.getMonth(); cur = key(n);
-      render(); return;
-    }
-    const p = t.getAttribute && t.getAttribute("data-p");
-    if (p) {
-      sel = (sel === p) ? "" : p;
-      $("place").value = "";
-      msg("");
-      render();
-      return;
-    }
-    const dt = t.getAttribute && t.getAttribute("data-t");
-    if (dt) {
-      items = items.filter(i => String(i.t) !== dt);
-      saveData("已刪除紀錄。");
-      return;
-    }
-    if (t.id === "gps") {
-      if (coords) {
-        coords = null; t.classList.remove("on"); t.textContent = "加上定位"; msg(""); return;
-      }
-      if (!navigator.geolocation) {
-        msg("瀏覽器不支援定位。"); return;
-      }
-      msg("定位中…");
-      navigator.geolocation.getCurrentPosition(pos => {
-        coords = { lat: +pos.coords.latitude.toFixed(5), lng: +pos.coords.longitude.toFixed(5) };
-        t.classList.add("on"); t.textContent = "已定位（點擊取消）"; msg("GPS 定位成功！");
-      }, () => {
-        msg("無法取得定位，請確認手機與瀏覽器已允許取用位置。");
-      }, { enableHighAccuracy: true, timeout: 10000 });
-      return;
-    }
-    const paw = t.closest && t.closest("#paw");
-    if (paw) {
-      const place = $("place").value.trim() || sel;
-      if (!place) { msg("請先點選地點或自行輸入！"); return; }
-      const n2 = new Date();
-      const cp = cur.split("-");
-      const tt = (cur === key(n2)) ? n2.getTime() : new Date(+cp[0], +cp[1] - 1, +cp[2], n2.getHours(), n2.getMinutes(), n2.getSeconds()).getTime();
-      
-      items.unshift({ t: tt, place: place, note: $("note").value.trim(), c: coords });
-      coords = null; sel = "";
-      const gpsBtn = $("gps");
-      if (gpsBtn) { gpsBtn.classList.remove("on"); gpsBtn.textContent = "加上定位"; }
-
-      const d = document.createElement("div");
-      d.className = "pop";
-      d.textContent = "啪！";
-      document.body.appendChild(d);
-      setTimeout(() => d.remove(), 900);
-
-      $("place").value = "";
-      $("note").value = "";
-      saveData("已記錄完成！");
-    }
-  });
-
-  $("place").addEventListener("input", function() {
-    if (this.value) { sel = ""; render(); }
-  });
-
-  loadData();
-  render();
-})();
-</script>
-</body>
-</html>
+      const k = vy +
