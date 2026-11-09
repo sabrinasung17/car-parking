@@ -219,7 +219,10 @@
 <script>
 (function() {
   const KEY = "parking-log-local-v1";
-  const PRESETS = ["全聯旁邊", "舊小巷", "85度C", "洗衣店（燒臘店旁）", "紀醫師前面"];
+  
+  // 這裡已經為您更新成新的 5 個地點！
+  const PRESETS = ["市場全聯", "舊小象旁邊", "85度C/燒臘店對面", "夾娃娃機/洗衣店旁", "紀醫師前面"];
+  
   let items = [];
   let coords = null;
   let sel = "";
@@ -367,7 +370,7 @@
         coords = { lat: +pos.coords.latitude.toFixed(5), lng: +pos.coords.longitude.toFixed(5) };
         t.classList.add("on"); t.textContent = "已定位（點擊取消）"; msg("GPS 定位成功！");
       }, () => {
-        msg("無法取得定位，請確認已允許取用位置。");
+        msg("無法取得定位，請確認手機與瀏覽器已允許取用位置。");
       }, { enableHighAccuracy: true, timeout: 10000 });
       return;
     }
